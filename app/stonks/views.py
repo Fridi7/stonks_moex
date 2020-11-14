@@ -9,14 +9,8 @@ from . import actions
 from .serializers import QuotedSecuritiesSerializer, StocksSerializer, SummarySerializer
 
 
-
-
 def load_stock(request):
     """Описание запроса к MOEX - https://iss.moex.com/iss/reference/171 """
-
-    # в МОЕКС api не нашел доступного функционала запроса по определнной акцие, поэтому вызов функции по чтению файла
-    # закомментирован и сразу загружаются все акции
-    # actions.load_from_files()
     data = requests.get(url='https://iss.moex.com/iss/statistics/engines/stock/quotedsecurities.json?iss.meta=off&iss'
                             '.only=quotedsecurities')
     ready_data = actions.decoder_from_js(data, element='quotedsecurities')
@@ -25,7 +19,6 @@ def load_stock(request):
         stock2 = QuotedSecurities(trade_data=i[0], secid=i[1], name=i[2], isin=i[3],
                                   reg_number=i[4], main_board_id=i[5], list_level=i[6], quoted=bool(i[7]))
         process = process + 1
-        print(process)
         stock2.save()
     return JsonResponse("Stock data loaded", safe=False)
 
@@ -61,7 +54,6 @@ def ohlc(request, start_date, end_date, secid):
         serializer = StocksSerializer(instance=stocks, many=True)
         return Response(serializer.data)
     except (Stock.DoesNotExist, QuotedSecurities.DoesNotExist):
-        print('debag2')
         data = requests.get(url=f'https://iss.moex.com/iss/history/engines/stock/markets/shares/securities/{secid}'
                                 f'.json?iss.meta=off&iss.only=history&from={start_date}&till={end_date}'
                                 f'&history.columns=BOARDID,SECID,TRADEDATE,NAME,CLOSE')
@@ -93,27 +85,18 @@ def get_summary(request, start_date, end_date, board='TQBR'):
     stock_id = Stock.objects.filter(trade_data=start_date and end_date, board_id=board)  # at the moment only data on
     # the TQBR board is returned
     data = QuotedSecurities.objects.filter(stocks__in=stock_id)
-    print(data)
     if not data:
-        print('debag0')
         return JsonResponse("Stock Does Not Exist", safe=False)
     result = []
     for i in data:
         s_date = i.stocks.filter(trade_data=start_date).first()  # расчет будет по одному из board
         e_date = i.stocks.filter(trade_data=end_date).first()
-        print(e_date, s_date)
 
         if not hasattr(s_date, 'close') or not hasattr(e_date, 'close'):
-            print('exit1')
             return JsonResponse("Stock Value Does Not Exist", safe=False)
         change = [s_date.close, e_date.close]
         pct_change = actions.calc_percentage_change(change)
-        new_res = {}
-        new_res['name'] = i.name
-        new_res['secid'] = i.secid
-        new_res['pct_change'] = pct_change[1]
-        new_res['board_id'] = board
-        result.append(new_res)
+        result.append({'name': i.name, 'secid': i.secid, 'pct_change': pct_change[1], 'board_id': board})
 
     if not result:
         return JsonResponse("Stock Does Not Exist", safe=False)

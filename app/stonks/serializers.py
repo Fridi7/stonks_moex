@@ -23,3 +23,7 @@ class SummarySerializer(serializers.Serializer):
     secid = serializers.CharField(max_length=36)
     board_id = serializers.CharField(max_length=12)
     pct_change = serializers.FloatField()
+
+
+class ErrorMessageSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=36)
