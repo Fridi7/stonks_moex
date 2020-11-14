@@ -123,3 +123,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+MOEX_URL = 'https://iss.moex.com/iss/'
+MOEX_URL_OHLC = 'https://iss.moex.com/iss/history/engines/stock/markets/shares/securities/'
+MOEX_URL_STOCK = 'https://iss.moex.com/iss/statistics/engines/stock/'
