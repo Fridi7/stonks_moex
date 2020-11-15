@@ -1,7 +1,5 @@
 import json
 
-import pandas as pd
-
 
 def decoder_from_js(data, element):
     data_json = json.loads(data.text)
@@ -10,6 +8,6 @@ def decoder_from_js(data, element):
 
 
 def calc_percentage_change(numbers):
-    change_series = pd.Series(numbers)
-    pct_change = change_series.pct_change()
-    return pct_change
+    pct_change = (numbers[1] - numbers[0]) / numbers[0]
+    format_pct_change = float('{:.5f}'.format(pct_change))
+    return format_pct_change

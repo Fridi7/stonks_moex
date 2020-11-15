@@ -108,7 +108,7 @@ def get_summary(request, start_date, end_date, board='TQBR'):
             return Response({"Stock Value Does Not Exist"})
         change = [s_date.close, e_date.close]
         pct_change = actions.calc_percentage_change(change)
-        result.append({'name': stock.name, 'secid': stock.secid, 'pct_change': pct_change[1], 'board_id': board})
+        result.append({'name': stock.name, 'secid': stock.secid, 'pct_change': pct_change, 'board_id': board})
 
     if not result:
         return Response({"Stock Does Not Exist"})
