@@ -1,117 +1,38 @@
-import datetime
-
-import requests
-from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from .actions import *
-from .models import Stock, QuotedSecurities
 from .serializers import QuotedSecuritiesSerializer, StocksSerializer, SummarySerializer
+from .services import *
 
 
 @api_view(('GET',))
-def load_stock(request):
-    """
-    Описание запроса к MOEX - https://iss.moex.com/iss/reference/171
-    """
-    if not QuotedSecurities.objects.filter(trade_data=datetime.datetime.now().strftime("%Y-%m-%d")).exists():
-        data = requests.get(url=f'{settings.MOEX_URL_STOCK}quotedsecurities.json?iss.meta=off&iss'
-                                '.only=quotedsecurities')
-        data_dict = decoder_from_js(data, element='quotedsecurities')
-        for stock in data_dict:
-            QuotedSecurities(trade_data=stock[0], secid=stock[1], name=stock[2],
-                             isin=stock[3], reg_number=stock[4], main_board_id=stock[5],
-                             list_level=stock[6], quoted=bool(stock[7]))
-        return Response({"Stock data loaded"})
+def load_stocks(request):
+    result_message = get_stocks()
+    return Response({result_message})
+
+
+@api_view(('GET',))
+def stock(request, secid):
+    result_stock = get_stock(secid)
+    if result_stock:
+        serializer = QuotedSecuritiesSerializer(result_stock)
+        return Response(serializer.data)
     else:
-        return Response({"Stock data for today already loaded"})
-
-
-@api_view(('GET',))
-def get_stock(request, secid):
-    """
-        :param secid:
-        Тикер ценной бумаги
-        """
-    try:
-        stock = QuotedSecurities.objects.get(secid=secid)
-        serializer = QuotedSecuritiesSerializer(stock)
-    except QuotedSecurities.DoesNotExist:
         return Response({"Quoted securities not found"})
-    return Response(serializer.data)
 
 
 @api_view(('GET',))
 def ohlc(request, start_date, end_date, secid):
-    """
-    Описание запроса к MOEX - https://iss.moex.com/iss/reference/65
-     :param start_date:
-        Дата начала вида ГГГГ-ММ-ДД
-    :param end_date:
-        Дата конца вида ГГГГ-ММ-ДД
-    :param secid:
-        Тикер ценной бумаги
-     """
-    checker_start_date = Stock.objects.filter(trade_data=start_date,
-                                              secid=QuotedSecurities.objects.get(secid=secid),
-                                              board_id='TQBR')
-    checker_end_date = Stock.objects.filter(trade_data=end_date,
-                                            secid=QuotedSecurities.objects.get(secid=secid),
-                                            board_id='TQBR')
-    if checker_start_date and checker_end_date:
-        # checking that database already contains the requested data and does not need to contact the api
-        stocks = Stock.objects.filter(trade_data__gte=start_date, trade_data__lte=end_date,
-                                      secid=QuotedSecurities.objects.get(secid=secid))
-        serializer = StocksSerializer(instance=stocks, many=True)
-        return Response(serializer.data)
-    else:
-        data = requests.get(url=f'{settings.MOEX_URL_OHLC}{secid}'
-                                f'.json?iss.meta=off&iss.only=history&from={start_date}&till={end_date}'
-                                f'&history.columns=BOARDID,SECID,TRADEDATE,NAME,CLOSE')
-
-        data_dict = decoder_from_js(data, element='history')
-        to_user = []
-        for quotation in data_dict:
-            sec_id = QuotedSecurities.objects.get(secid=quotation[1])
-            stock = Stock.objects.get_or_create(secid=sec_id,
-                                                trade_data=quotation[2],
-                                                close=quotation[3],
-                                                board_id=quotation[0])
-            to_user.append(stock[0])
-        serializer = StocksSerializer(instance=to_user, many=True)
-        return Response(serializer.data)
+    stocks = get_ohlc(start_date, end_date, secid)
+    serializer = StocksSerializer(instance=stocks, many=True)
+    return Response(serializer.data)
 
 
 @api_view(('GET',))
-def get_summary(request, start_date, end_date, board='TQBR'):
-    """
-    :param start_date:
-        Дата начала вида ГГГГ-ММ-ДД
-    :param end_date:
-        Дата конца вида ГГГГ-ММ-ДД
-    :param board:
-        Режим торгов - по умолчанию основной режим торгов TQBR
-     """
-
-    stock_id = Stock.objects.filter(trade_data=start_date and end_date, board_id=board)  # at the moment only data on
-    # the TQBR board is returned
-    data = QuotedSecurities.objects.filter(stocks__in=stock_id)
-    if not data:
-        return Response({"Stock Does Not Exist"})
-    result = []
-    for stock in data:
-        s_date = stock.stocks.filter(trade_data=start_date).first()  # calculation will be one of the board
-        e_date = stock.stocks.filter(trade_data=end_date).first()
-
-        if not hasattr(s_date, 'close') or not hasattr(e_date, 'close'):
-            return Response({"Stock Value Does Not Exist"})
-        change = [s_date.close, e_date.close]
-        pct_change = calc_percentage_change(change)
-        result.append({'name': stock.name, 'secid': stock.secid, 'pct_change': pct_change, 'board_id': board})
-
-    if not result:
-        return Response({"Stock Does Not Exist"})
-
-    serializer = SummarySerializer(result, many=True)
-    return Response(serializer.data)
+def summary(request, start_date, end_date):
+    result = get_summary(start_date, end_date)
+    if isinstance(result, list):
+        serializer = SummarySerializer(result, many=True)
+        return Response(serializer.data)
+    elif isinstance(result, str):
+        return Response({result})
