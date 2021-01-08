@@ -52,9 +52,9 @@ Answer:
 
 in the browser go to the URL 
 
-    http://localhost:8000/stocks/from<start_date>to<end_date>by<ticker>/ 
+    http://localhost:8000/stocks/?from=<start_date>&to=<end_date>&by<ticker>/ 
 (or curl, requests, etc, similar to the first point)    
-for example, http://localhost:8000/stocks/from2020-08-03to2020-08-05bySBER 
+for example, http://localhost:8000/stocks/?from=2020-08-03&to=2020-08-05&by=SBER 
 
 Answer:
 
@@ -93,9 +93,9 @@ Answer:
 
 in the browser go to the URL 
 
-    http://localhost:8000/get_summary/from<start_date>to<end_date>/ 
+    http://localhost:8000/get_summary/?from=<start_date>&to=<end_date>/ 
 (or curl, requests, etc, similar to the first point)    
-for example, http://localhost:8000/get_summary/from2020-06-03to2020-08-07 
+for example, http://localhost:8000/get_summary/?from=2020-06-03&to=2020-08-07 
 
 Example answer:
 
